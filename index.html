@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <title>Kroki Master - Anatomisk Docka</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; }
+        #ui { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; max-height: 90vh; overflow-y: auto; width: 220px; z-index: 10; border: 1px solid #444; }
+        button { width: 100%; margin-bottom: 5px; padding: 8px; cursor: pointer; background: #444; color: white; border: none; border-radius: 4px; transition: 0.2s; }
+        button:hover { background: #666; }
+        .label { font-size: 12px; color: #aaa; margin-top: 10px; margin-bottom: 5px; }
+        input[type=range] { width: 100%; }
+        h3 { margin-top: 0; color: #ffcc00; font-size: 16px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h3>KROKI STUDIO</h3>
+    <div class="label">LJUSVINKEL</div>
+    <input type="range" id="lightPos" min="-10" max="10" step="0.1" value="5">
+    
+    <div class="label">POSERINGAR (40 st)</div>
+    <div id="poseButtons"></div>
+</div>
+
+<script type="module">
+    import * as THREE from 'https://skypack.dev';
+    import { OrbitControls } from 'https://skypack.dev/examples/jsm/controls/OrbitControls.js';
+
+    // --- SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 2, 6);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // --- LJUS (SKAPAR SKUGGOR) ---
+    const spotLight = new THREE.SpotLight(0xffffff, 1.5);
+    spotLight.position.set(5, 5, 5);
+    spotLight.castShadow = true;
+    spotLight.shadow.mapSize.width = 2048;
+    spotLight.shadow.mapSize.height = 2048;
+    scene.add(spotLight);
+
+    const ambient = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambient);
+
+    // Golv för skuggor
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(20, 20),
+        new THREE.MeshStandardMaterial({ color: 0x222222 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // --- MATERIAL ---
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6 });
+    const jointMat = new THREE.MeshStandardMaterial({ color: 0x8800ff });
+
+    // --- DOCKANS STRUKTUR (SKELETT) ---
+    const mannequin = new THREE.Group();
+    scene.add(mannequin);
+
+    function createBone(geom, mat, yPos, parent) {
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.y = yPos;
+        mesh.castShadow = true;
+        const group = new THREE.Group();
+        group.add(mesh);
+        if (parent) parent.add(group);
+        return { group, mesh };
+    }
+
+    // Kroppsdelar
+    const pelvis = createBone(new THREE.CapsuleGeometry(0.2, 0.15, 4, 8), bodyMat, 0, mannequin);
+    pelvis.group.position.y = 1.1;
+
+    const torsoJoint = createBone(new THREE.SphereGeometry(0.1, 16, 16), jointMat, 0, pelvis.group);
+    const torso = createBone(new THREE.CapsuleGeometry(0.25, 0.4, 4, 8), bodyMat, 0.3, torsoJoint.group);
+
+    const neck = createBone(new THREE.SphereGeometry(0.08, 16, 16), jointMat, 0.35, torso.group);
+    const head = createBone(new THREE.SphereGeometry(0.18, 24, 24), bodyMat, 0.2, neck.group);
+    head.mesh.scale.set(1, 1.2, 0.9);
+
+    // Armar
+    function makeArm(side) {
+        const shldr = createBone(new THREE.SphereGeometry(0.1, 16, 16), jointMat, 0, torso.group);
+        shldr.group.position.set(side * 0.4, 0.3, 0);
+        const upper = createBone(new THREE.CapsuleGeometry(0.08, 0.3, 4, 8), bodyMat, -0.2, shldr.group);
+        const elbow = createBone(new THREE.SphereGeometry(0.07, 16, 16), jointMat, -0.2, upper.group);
+        const lower = createBone(new THREE.CapsuleGeometry(0.07, 0.3, 4, 8), bodyMat, -0.2, elbow.group);
+        return { shldr, elbow };
+    }
+    const armL = makeArm(-1); const armR = makeArm(1);
+
+    // Ben
+    function makeLeg(side) {
+        const hip = createBone(new THREE.SphereGeometry(0.12, 16, 16), jointMat, 0, pelvis.group);
+        hip.group.position.set(side * 0.18, -0.1, 0);
+        const thigh = createBone(new THREE.CapsuleGeometry(0.11, 0.4, 4, 8), bodyMat, -0.3, hip.group);
+        const knee = createBone(new THREE.SphereGeometry(0.09, 16, 16), jointMat, -0.3, thigh.group);
+        const shin = createBone(new THREE.CapsuleGeometry(0.09, 0.4, 4, 8), bodyMat, -0.3, knee.group);
+        return { hip, knee };
+    }
+    const legL = makeLeg(-1); const legR = makeLeg(1);
+
+    // --- POSERINGSSYSTEM ---
+    const bones = {
+        torso: torsoJoint.group, neck: neck.group,
+        lShldr: armL.shldr.group, rShldr: armR.shldr.group,
+        lElbow: armL.elbow.group, rElbow: armR.elbow.group,
+        lHip: legL.hip.group, rHip: legR.hip.group,
+        lKnee: legL.knee.group, rKnee: legR.knee.group,
+        pelvis: pelvis.group
+    };
+
+    function resetPose() {
+        Object.values(bones).forEach(b => b.rotation.set(0,0,0));
+        bones.pelvis.position.y = 1.1;
+    }
+
+    function applyPose(seed) {
+        resetPose();
+        const rand = (s) => Math.sin(seed * s);
+        
+        // Simulerar naturliga "Figure Drawing" poser
+        bones.pelvis.rotation.x = rand(1) * 0.2;
+        bones.pelvis.rotation.z = rand(2) * 0.3; // Contrapposto (höftvridning)
+        bones.torso.rotation.y = rand(3) * 0.5;
+        bones.torso.rotation.x = rand(4) * 0.4;
+        
+        bones.lHip.rotation.x = rand(5) * 1;
+        bones.rHip.rotation.x = rand(6) * -1;
+        bones.lKnee.rotation.x = Math.abs(rand(7));
+        bones.rKnee.rotation.x = Math.abs(rand(8));
+        
+        bones.lShldr.rotation.z = rand(9) * 1.5;
+        bones.rShldr.rotation.x = rand(10) * 1.5;
+        bones.lElbow.rotation.x = -Math.abs(rand(11));
+        
+        // Justera höjd om sittande
+        if(Math.abs(bones.lHip.rotation.x) > 1) bones.pelvis.position.y = 0.6;
+    }
+
+    // Skapa 40 knappar
+    const btnContainer = document.getElementById('poseButtons');
+    for(let i=1; i<=40; i++) {
+        const btn = document.createElement('button');
+        btn.innerText = `Pose ${i}`;
+        btn.onclick = () => applyPose(i * 13.5);
+        btnContainer.appendChild(btn);
+    }
+
+    // UI Ljusstyrning
+    document.getElementById('lightPos').oninput = (e) => {
+        spotLight.position.x = parseFloat(e.target.value);
+    };
+
+    // --- RENDER LOOP ---
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+</script>
+</body>
+</html>
