@@ -4,98 +4,101 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Figure Drawing Mannequin / Croquis Studio</title>
-    <!-- Laddar Three.js via klassisk script-tagg för maximal kompatibilitet -->
-    <script src="https://cloudflare.com"></script>
+    <!-- Vi använder JSDelivr som ofta fungerar bättre i inbäddade miljöer -->
+    <script src="https://jsdelivr.net"></script>
     <script src="https://jsdelivr.net"></script>
     <style>
-        body { margin: 0; background: #111; color: #eee; font-family: sans-serif; overflow: hidden; }
+        body { margin: 0; background: #111; color: #eee; font-family: sans-serif; overflow: hidden; width: 100vw; height: 100vh; }
         #ui { 
             position: absolute; top: 10px; left: 10px; 
-            background: rgba(0,0,0,0.8); padding: 15px; 
-            border-radius: 8px; width: 200px; max-height: 90vh; 
-            overflow-y: auto; z-index: 10; border: 1px solid #333;
+            background: rgba(0,0,0,0.85); padding: 15px; 
+            border-radius: 8px; width: 180px; max-height: 90vh; 
+            overflow-y: auto; z-index: 100; border: 1px solid #444;
         }
-        h2 { color: #ffcc00; font-size: 16px; margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .label { font-size: 11px; color: #888; margin: 10px 0 5px 0; text-transform: uppercase; }
+        h2 { color: #ffcc00; font-size: 14px; margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .label { font-size: 10px; color: #aaa; margin: 10px 0 5px 0; text-transform: uppercase; letter-spacing: 1px; }
         button { 
-            width: 100%; padding: 8px; margin-bottom: 4px; 
-            background: #333; color: white; border: 1px solid #444; 
-            border-radius: 4px; cursor: pointer; font-size: 12px;
+            width: 100%; padding: 6px; margin-bottom: 3px; 
+            background: #222; color: #ddd; border: 1px solid #444; 
+            border-radius: 4px; cursor: pointer; font-size: 11px;
         }
         button:hover { background: #ffcc00; color: #000; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #ffcc00; }
-        #webgl-error { 
+        #status-msg { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #ff4444; text-align: center; display: none;
+            color: #ffcc00; text-align: center; font-size: 14px; z-index: 1;
         }
     </style>
 </head>
 <body>
 
-<div id="webgl-error">WebGL not supported or disabled in this browser.</div>
+<div id="status-msg">Loading Studio...</div>
 
 <div id="ui">
-    <h2>CROQUIS STUDIO</h2>
-    
-    <div class="label">Light Direction</div>
+    <h2>FIGURE DRAWING</h2>
+    <div class="label">Light Angle</div>
     <input type="range" id="lightPos" min="-10" max="10" step="0.1" value="5">
-    
-    <div class="label">Poses (40 Variants)</div>
+    <div class="label">Poses</div>
     <div id="poseButtons"></div>
 </div>
 
 <script>
-    // --- INITIALISERING ---
     let scene, camera, renderer, controls, spotLight;
     let joints = {};
 
-    function init() {
-        try {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x151515);
-
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 2.5, 6);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            document.body.appendChild(renderer.domElement);
-
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.target.set(0, 1, 0);
-
-            // --- LJUS (Ambient + Key Light) ---
-            const ambient = new THREE.AmbientLight(0xffffff, 0.4); 
-            scene.add(ambient);
-
-            spotLight = new THREE.SpotLight(0xffffff, 1.2);
-            spotLight.position.set(5, 8, 5);
-            spotLight.castShadow = true;
-            spotLight.shadow.mapSize.width = 1024;
-            spotLight.shadow.mapSize.height = 1024;
-            scene.add(spotLight);
-
-            // Mark för skuggor
-            const floor = new THREE.Mesh(
-                new THREE.PlaneGeometry(20, 20),
-                new THREE.MeshStandardMaterial({ color: 0x1a1a1a })
-            );
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            buildMannequin();
-            createPoseButtons();
-            animate();
-        } catch (e) {
-            document.getElementById('webgl-error').style.display = 'block';
-            console.error(e);
+    // Kontrollera att Three.js är laddat innan vi kör
+    function checkLibraries() {
+        if (typeof THREE !== 'undefined' && THREE.OrbitControls) {
+            document.getElementById('status-msg').style.display = 'none';
+            init();
+        } else {
+            // Försök igen om 100ms
+            setTimeout(checkLibraries, 100);
         }
     }
 
-    // --- ANATOMISK BYGGNATION ---
+    function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x151515);
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+        camera.position.set(0, 2.5, 6);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(width, height);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 1, 0);
+
+        // LJUS
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5); 
+        scene.add(ambient);
+
+        spotLight = new THREE.SpotLight(0xffffff, 1.0);
+        spotLight.position.set(5, 8, 5);
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+
+        // GOLV
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(20, 20),
+            new THREE.MeshStandardMaterial({ color: 0x1a1a1a })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        buildMannequin();
+        createPoseButtons();
+        animate();
+    }
+
     function buildMannequin() {
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.5 });
         const jointMat = new THREE.MeshStandardMaterial({ color: 0x8800ff });
@@ -112,77 +115,57 @@
             return { pivot, mesh };
         }
 
-        // 1. Pelvis (Basen) - Kon som smalnar av nedåt
+        // Chest (V-shape) & Pelvis
         const pelvis = createPart(new THREE.CylinderGeometry(0.25, 0.15, 0.4, 8), bodyMat, 0, null);
         pelvis.pivot.position.y = 1.1;
 
-        // 2. Torso/Chest - Inverterad kon (bredare upptill)
         const spine = createPart(new THREE.SphereGeometry(0.1, 12, 12), jointMat, 0, pelvis.pivot);
         const chest = createPart(new THREE.CylinderGeometry(0.4, 0.25, 0.6, 8), bodyMat, 0.35, spine.pivot);
 
-        // 3. Head
         const neck = createPart(new THREE.SphereGeometry(0.07, 12, 12), jointMat, 0.35, chest.pivot);
         const head = createPart(new THREE.SphereGeometry(0.18, 16, 16), bodyMat, 0.2, neck.pivot);
         head.mesh.scale.set(1, 1.2, 1);
 
-        // 4. Arms (Conical anatomy)
-        function makeArm(side) {
-            const shldr = createPart(new THREE.SphereGeometry(0.1, 12, 12), jointMat, 0, chest.pivot);
-            shldr.pivot.position.set(side * 0.45, 0.3, 0);
-            const upper = createPart(new THREE.CylinderGeometry(0.07, 0.1, 0.4, 8), bodyMat, -0.2, shldr.pivot);
-            const elbow = createPart(new THREE.SphereGeometry(0.07, 12, 12), jointMat, -0.25, upper.pivot);
-            const lower = createPart(new THREE.CylinderGeometry(0.05, 0.07, 0.35, 8), bodyMat, -0.2, elbow.pivot);
-            return { shldr, elbow };
+        // Arms & Legs
+        function makeLimb(parent, x, y, isArm) {
+            const joint = createPart(new THREE.SphereGeometry(isArm ? 0.09 : 0.12, 12, 12), jointMat, 0, parent);
+            joint.pivot.position.set(x, y, 0);
+            const upper = createPart(new THREE.CylinderGeometry(isArm ? 0.07 : 0.09, isArm ? 0.1 : 0.13, isArm ? 0.4 : 0.5, 8), bodyMat, isArm ? -0.2 : -0.3, joint.pivot);
+            const midJoint = createPart(new THREE.SphereGeometry(isArm ? 0.07 : 0.1, 12, 12), jointMat, isArm ? -0.25 : -0.3, upper.pivot);
+            const lower = createPart(new THREE.CylinderGeometry(isArm ? 0.05 : 0.07, isArm ? 0.07 : 0.1, isArm ? 0.35 : 0.5, 8), bodyMat, isArm ? -0.2 : -0.3, midJoint.pivot);
+            return { joint, midJoint };
         }
 
-        // 5. Legs (Conical anatomy)
-        function makeLeg(side) {
-            const hip = createPart(new THREE.SphereGeometry(0.12, 12, 12), jointMat, 0, pelvis.pivot);
-            hip.pivot.position.set(side * 0.2, -0.1, 0);
-            const thigh = createPart(new THREE.CylinderGeometry(0.09, 0.13, 0.5, 8), bodyMat, -0.3, hip.pivot);
-            const knee = createPart(new THREE.SphereGeometry(0.09, 12, 12), jointMat, -0.3, thigh.pivot);
-            const shin = createPart(new THREE.CylinderGeometry(0.06, 0.09, 0.5, 8), bodyMat, -0.3, knee.pivot);
-            return { hip, knee };
-        }
-
-        const armL = makeArm(-1); const armR = makeArm(1);
-        const legL = makeLeg(-1); const legR = makeLeg(1);
+        const armL = makeLimb(chest.pivot, -0.45, 0.3, true);
+        const armR = makeLimb(chest.pivot, 0.45, 0.3, true);
+        const legL = makeLimb(pelvis.pivot, -0.2, -0.1, false);
+        const legR = makeLimb(pelvis.pivot, 0.2, -0.1, false);
 
         joints = {
             pelvis: pelvis.pivot, spine: spine.pivot, neck: neck.pivot,
-            lShldr: armL.shldr.pivot, rShldr: armR.shldr.pivot,
-            lElbow: armL.elbow.pivot, rElbow: armR.elbow.pivot,
-            lHip: legL.hip.pivot, rHip: legR.hip.pivot,
-            lKnee: legL.knee.pivot, rKnee: legR.knee.pivot
+            lShldr: armL.joint.pivot, rShldr: armR.joint.pivot,
+            lElbow: armL.midJoint.pivot, rElbow: armR.midJoint.pivot,
+            lHip: legL.joint.pivot, rHip: legR.joint.pivot,
+            lKnee: legL.midJoint.pivot, rKnee: legR.midJoint.pivot
         };
     }
 
-    // --- POSERING ---
     function applyPose(id) {
-        // Reset
         Object.values(joints).forEach(j => j.rotation.set(0,0,0));
         joints.pelvis.position.y = 1.1;
-
         const phase = id * 0.7;
-        // Matematiska poser för variation (Kroki-stil)
-        joints.pelvis.rotation.z = Math.sin(phase) * 0.3; // Contrapposto
-        joints.spine.rotation.x = Math.cos(phase) * 0.2;
-        joints.spine.rotation.y = Math.sin(phase * 0.5) * 0.4;
         
-        joints.lHip.rotation.x = Math.sin(phase) * 0.8;
-        joints.rHip.rotation.x = -Math.sin(phase) * 0.4;
-        joints.lKnee.rotation.x = Math.abs(Math.cos(phase)) * 1.2;
+        joints.pelvis.rotation.z = Math.sin(phase) * 0.2;
+        joints.spine.rotation.x = Math.cos(phase) * 0.15;
+        joints.lHip.rotation.x = Math.sin(phase) * 0.7;
+        joints.rHip.rotation.x = -Math.sin(phase) * 0.5;
+        joints.lKnee.rotation.x = Math.abs(Math.cos(phase)) * 1.0;
+        joints.lShldr.rotation.z = -1.2;
         
-        joints.lShldr.rotation.z = -1.2 - Math.sin(phase);
-        joints.rShldr.rotation.x = 1.0;
-        
-        // Sittande poser för var 5:e knapp
-        if(id % 5 === 0) {
+        if(id % 5 === 0) { // Seated
             joints.pelvis.position.y = 0.6;
-            joints.lHip.rotation.x = -1.5;
-            joints.rHip.rotation.x = -1.5;
-            joints.lKnee.rotation.x = 1.4;
-            joints.rKnee.rotation.x = 1.4;
+            joints.lHip.rotation.x = -1.4; joints.rHip.rotation.x = -1.4;
+            joints.lKnee.rotation.x = 1.2; joints.rKnee.rotation.x = 1.2;
         }
     }
 
@@ -196,24 +179,26 @@
         }
     }
 
-    // --- LJUS-KONTROLL ---
-    document.getElementById('lightPos').addEventListener('input', (e) => {
-        spotLight.position.x = parseFloat(e.target.value);
-    });
+    document.getElementById('lightPos').oninput = (e) => {
+        if(spotLight) spotLight.position.x = parseFloat(e.target.value);
+    };
 
     function animate() {
         requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
+        if(controls) controls.update();
+        if(renderer && scene && camera) renderer.render(scene, camera);
     }
 
     window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (camera && renderer) {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
     });
 
-    window.onload = init;
+    // Starta kontroll-loopen
+    checkLibraries();
 </script>
 </body>
 </html>
