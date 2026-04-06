@@ -1,172 +1,195 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Kroki Master - Anatomisk Docka</title>
+    <title>Kroki Studio - Anatomical Mannequin</title>
     <style>
-        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; }
-        #ui { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; max-height: 90vh; overflow-y: auto; width: 220px; z-index: 10; border: 1px solid #444; }
-        button { width: 100%; margin-bottom: 5px; padding: 8px; cursor: pointer; background: #444; color: white; border: none; border-radius: 4px; transition: 0.2s; }
-        button:hover { background: #666; }
-        .label { font-size: 12px; color: #aaa; margin-top: 10px; margin-bottom: 5px; }
-        input[type=range] { width: 100%; }
-        h3 { margin-top: 0; color: #ffcc00; font-size: 16px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        body { margin: 0; background: #111; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        #ui { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85); padding: 20px; border-radius: 12px; max-height: 85vh; overflow-y: auto; width: 240px; z-index: 100; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        button { width: 100%; margin-bottom: 6px; padding: 10px; cursor: pointer; background: #333; color: #eee; border: 1px solid #444; border-radius: 6px; font-weight: bold; transition: all 0.2s; }
+        button:hover { background: #ffcc00; color: #000; border-color: #ffcc00; }
+        .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin: 15px 0 5px 0; }
+        input[type=range] { width: 100%; accent-color: #ffcc00; cursor: pointer; }
+        h2 { margin: 0 0 15px 0; color: #ffcc00; font-size: 20px; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .controls-hint { font-size: 10px; color: #666; margin-top: 15px; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <h3>KROKI STUDIO</h3>
-    <div class="label">LJUSVINKEL</div>
-    <input type="range" id="lightPos" min="-10" max="10" step="0.1" value="5">
+    <h2>KROKI STUDIO</h2>
     
-    <div class="label">POSERINGAR (40 st)</div>
+    <div class="label">Light Direction</div>
+    <input type="range" id="lightPos" min="-12" max="12" step="0.1" value="5">
+    
+    <div class="label">Poses (40 Variants)</div>
     <div id="poseButtons"></div>
+
+    <div class="controls-hint">
+        Left Click: Rotate Camera<br>
+        Right Click: Pan<br>
+        Scroll: Zoom
+    </div>
 </div>
 
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com",
+            "three/addons/": "https://unpkg.com"
+        }
+    }
+</script>
+
 <script type="module">
-    import * as THREE from 'https://skypack.dev';
-    import { OrbitControls } from 'https://skypack.dev/examples/jsm/controls/OrbitControls.js';
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-    // --- SETUP ---
+    // --- SCENE SETUP ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111);
+    scene.background = new THREE.Color(0x151515);
 
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 2, 6);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 2.5, 7);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.target.set(0, 1, 0);
 
-    // --- LJUS (SKAPAR SKUGGOR) ---
-    const spotLight = new THREE.SpotLight(0xffffff, 1.5);
-    spotLight.position.set(5, 5, 5);
+    // --- LIGHTING ---
+    const spotLight = new THREE.SpotLight(0xffffff, 150); // Stronger light for shadows
+    spotLight.position.set(5, 8, 5);
     spotLight.castShadow = true;
-    spotLight.shadow.mapSize.width = 2048;
-    spotLight.shadow.mapSize.height = 2048;
+    spotLight.angle = Math.PI / 4;
+    spotLight.penumbra = 0.3;
     scene.add(spotLight);
 
-    const ambient = new THREE.AmbientLight(0x404040, 0.5);
-    scene.add(ambient);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambientLight);
 
-    // Golv för skuggor
+    // Ground Plane for Shadows
     const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(20, 20),
-        new THREE.MeshStandardMaterial({ color: 0x222222 })
+        new THREE.PlaneGeometry(50, 50),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 })
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // --- MATERIAL ---
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6 });
-    const jointMat = new THREE.MeshStandardMaterial({ color: 0x8800ff });
+    // --- MATERIALS (As per requested image) ---
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.4, metalness: 0.1 });
+    const jointMat = new THREE.MeshStandardMaterial({ color: 0x8800ff, roughness: 0.3 });
 
-    // --- DOCKANS STRUKTUR (SKELETT) ---
+    // --- BUILD MANNEQUIN ---
     const mannequin = new THREE.Group();
     scene.add(mannequin);
 
-    function createBone(geom, mat, yPos, parent) {
+    function createSegment(geom, mat, yOffset, parent) {
         const mesh = new THREE.Mesh(geom, mat);
-        mesh.position.y = yPos;
+        mesh.position.y = yOffset;
         mesh.castShadow = true;
-        const group = new THREE.Group();
-        group.add(mesh);
-        if (parent) parent.add(group);
-        return { group, mesh };
+        mesh.receiveShadow = true;
+        const pivot = new THREE.Group();
+        pivot.add(mesh);
+        if (parent) parent.add(pivot);
+        return { pivot, mesh };
     }
 
-    // Kroppsdelar
-    const pelvis = createBone(new THREE.CapsuleGeometry(0.2, 0.15, 4, 8), bodyMat, 0, mannequin);
-    pelvis.group.position.y = 1.1;
+    // Body Structure
+    const pelvis = createSegment(new THREE.CapsuleGeometry(0.22, 0.1, 4, 8), bodyMat, 0, mannequin);
+    pelvis.pivot.position.y = 1.2;
 
-    const torsoJoint = createBone(new THREE.SphereGeometry(0.1, 16, 16), jointMat, 0, pelvis.group);
-    const torso = createBone(new THREE.CapsuleGeometry(0.25, 0.4, 4, 8), bodyMat, 0.3, torsoJoint.group);
+    const spine = createSegment(new THREE.SphereGeometry(0.1, 16, 16), jointMat, 0, pelvis.pivot);
+    const chest = createSegment(new THREE.CapsuleGeometry(0.28, 0.45, 4, 12), bodyMat, 0.35, spine.pivot);
 
-    const neck = createBone(new THREE.SphereGeometry(0.08, 16, 16), jointMat, 0.35, torso.group);
-    const head = createBone(new THREE.SphereGeometry(0.18, 24, 24), bodyMat, 0.2, neck.group);
-    head.mesh.scale.set(1, 1.2, 0.9);
+    const neck = createSegment(new THREE.SphereGeometry(0.08, 12, 12), jointMat, 0.4, chest.pivot);
+    const head = createSegment(new THREE.SphereGeometry(0.2, 24, 24), bodyMat, 0.22, neck.pivot);
+    head.mesh.scale.set(1, 1.25, 1);
 
-    // Armar
-    function makeArm(side) {
-        const shldr = createBone(new THREE.SphereGeometry(0.1, 16, 16), jointMat, 0, torso.group);
-        shldr.group.position.set(side * 0.4, 0.3, 0);
-        const upper = createBone(new THREE.CapsuleGeometry(0.08, 0.3, 4, 8), bodyMat, -0.2, shldr.group);
-        const elbow = createBone(new THREE.SphereGeometry(0.07, 16, 16), jointMat, -0.2, upper.group);
-        const lower = createBone(new THREE.CapsuleGeometry(0.07, 0.3, 4, 8), bodyMat, -0.2, elbow.group);
-        return { shldr, elbow };
+    // Arms
+    function buildArm(side) {
+        const shoulder = createSegment(new THREE.SphereGeometry(0.12, 16, 16), jointMat, 0, chest.pivot);
+        shoulder.pivot.position.set(side * 0.45, 0.3, 0);
+        const upper = createSegment(new THREE.CapsuleGeometry(0.09, 0.35, 4, 8), bodyMat, -0.25, shoulder.pivot);
+        const elbow = createSegment(new THREE.SphereGeometry(0.08, 12, 12), jointMat, -0.25, upper.pivot);
+        const lower = createSegment(new THREE.CapsuleGeometry(0.08, 0.3, 4, 8), bodyMat, -0.25, elbow.pivot);
+        return { shoulder, elbow };
     }
-    const armL = makeArm(-1); const armR = makeArm(1);
+    const armL = buildArm(-1); const armR = buildArm(1);
 
-    // Ben
-    function makeLeg(side) {
-        const hip = createBone(new THREE.SphereGeometry(0.12, 16, 16), jointMat, 0, pelvis.group);
-        hip.group.position.set(side * 0.18, -0.1, 0);
-        const thigh = createBone(new THREE.CapsuleGeometry(0.11, 0.4, 4, 8), bodyMat, -0.3, hip.group);
-        const knee = createBone(new THREE.SphereGeometry(0.09, 16, 16), jointMat, -0.3, thigh.group);
-        const shin = createBone(new THREE.CapsuleGeometry(0.09, 0.4, 4, 8), bodyMat, -0.3, knee.group);
+    // Legs
+    function buildLeg(side) {
+        const hip = createSegment(new THREE.SphereGeometry(0.13, 16, 16), jointMat, 0, pelvis.pivot);
+        hip.pivot.position.set(side * 0.2, -0.1, 0);
+        const thigh = createSegment(new THREE.CapsuleGeometry(0.12, 0.45, 4, 8), bodyMat, -0.3, hip.pivot);
+        const knee = createSegment(new THREE.SphereGeometry(0.1, 12, 12), jointMat, -0.3, thigh.pivot);
+        const shin = createSegment(new THREE.CapsuleGeometry(0.1, 0.45, 4, 8), bodyMat, -0.3, knee.pivot);
         return { hip, knee };
     }
-    const legL = makeLeg(-1); const legR = makeLeg(1);
+    const legL = buildLeg(-1); const legR = buildLeg(1);
 
-    // --- POSERINGSSYSTEM ---
-    const bones = {
-        torso: torsoJoint.group, neck: neck.group,
-        lShldr: armL.shldr.group, rShldr: armR.shldr.group,
-        lElbow: armL.elbow.group, rElbow: armR.elbow.group,
-        lHip: legL.hip.group, rHip: legR.hip.group,
-        lKnee: legL.knee.group, rKnee: legR.knee.group,
-        pelvis: pelvis.group
+    // --- POSING LOGIC ---
+    const joints = {
+        pelvis: pelvis.pivot, spine: spine.pivot, neck: neck.pivot,
+        lShldr: armL.shoulder.pivot, rShldr: armR.shoulder.pivot,
+        lElbow: armL.elbow.pivot, rElbow: armR.elbow.pivot,
+        lHip: legL.hip.pivot, rHip: legR.hip.pivot,
+        lKnee: legL.knee.pivot, rKnee: legR.knee.pivot
     };
 
-    function resetPose() {
-        Object.values(bones).forEach(b => b.rotation.set(0,0,0));
-        bones.pelvis.position.y = 1.1;
+    function applyPose(index) {
+        // Reset all rotations
+        Object.values(joints).forEach(j => j.rotation.set(0,0,0));
+        joints.pelvis.position.y = 1.2;
+
+        const s = Math.sin(index * 1.5);
+        const c = Math.cos(index * 2.1);
+
+        // Procedural posing for variety
+        joints.pelvis.rotation.x = s * 0.2;
+        joints.pelvis.rotation.z = c * 0.4; // Contrapposto
+        joints.spine.rotation.y = s * 0.6;
+        joints.spine.rotation.x = -Math.abs(c * 0.3);
+        
+        joints.lHip.rotation.x = s * 1.2;
+        joints.rHip.rotation.x = -s * 0.5;
+        joints.lKnee.rotation.x = Math.abs(c * 1.5);
+        joints.rKnee.rotation.x = Math.abs(s * 0.8);
+        
+        joints.lShldr.rotation.z = -1 - s;
+        joints.rShldr.rotation.x = 1.5 * c;
+        joints.lElbow.rotation.x = -1.2;
+
+        // If sitting pose
+        if (index % 5 === 0) {
+            joints.lHip.rotation.x = -1.5;
+            joints.rHip.rotation.x = -1.4;
+            joints.lKnee.rotation.x = 1.5;
+            joints.rKnee.rotation.x = 1.2;
+            joints.pelvis.position.y = 0.6;
+        }
     }
 
-    function applyPose(seed) {
-        resetPose();
-        const rand = (s) => Math.sin(seed * s);
-        
-        // Simulerar naturliga "Figure Drawing" poser
-        bones.pelvis.rotation.x = rand(1) * 0.2;
-        bones.pelvis.rotation.z = rand(2) * 0.3; // Contrapposto (höftvridning)
-        bones.torso.rotation.y = rand(3) * 0.5;
-        bones.torso.rotation.x = rand(4) * 0.4;
-        
-        bones.lHip.rotation.x = rand(5) * 1;
-        bones.rHip.rotation.x = rand(6) * -1;
-        bones.lKnee.rotation.x = Math.abs(rand(7));
-        bones.rKnee.rotation.x = Math.abs(rand(8));
-        
-        bones.lShldr.rotation.z = rand(9) * 1.5;
-        bones.rShldr.rotation.x = rand(10) * 1.5;
-        bones.lElbow.rotation.x = -Math.abs(rand(11));
-        
-        // Justera höjd om sittande
-        if(Math.abs(bones.lHip.rotation.x) > 1) bones.pelvis.position.y = 0.6;
-    }
-
-    // Skapa 40 knappar
-    const btnContainer = document.getElementById('poseButtons');
+    // UI Buttons
+    const btnBox = document.getElementById('poseButtons');
     for(let i=1; i<=40; i++) {
-        const btn = document.createElement('button');
-        btn.innerText = `Pose ${i}`;
-        btn.onclick = () => applyPose(i * 13.5);
-        btnContainer.appendChild(btn);
+        const b = document.createElement('button');
+        b.innerHTML = `POSE ${i}`;
+        b.onclick = () => applyPose(i);
+        btnBox.appendChild(b);
     }
 
-    // UI Ljusstyrning
     document.getElementById('lightPos').oninput = (e) => {
         spotLight.position.x = parseFloat(e.target.value);
     };
 
-    // --- RENDER LOOP ---
+    // --- LOOP ---
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
